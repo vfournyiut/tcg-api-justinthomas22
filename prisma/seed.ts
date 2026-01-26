@@ -1,13 +1,21 @@
 import bcrypt from "bcryptjs";
-import {readFileSync} from "fs";
-import {join} from "path";
-import {prisma} from "../src/database";
-import {CardModel} from "../src/generated/prisma/models/Card";
-import {PokemonType} from "../src/generated/prisma/enums";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { prisma } from "../src/database";
+import { CardModel } from "../src/generated/prisma/models/Card";
+import { PokemonType } from "../src/generated/prisma/enums";
+
+// Tire au sort un nombre de carte choisis
+function getRandomCards(cards: CardModel[], count: number): CardModel[] {
+    const shuffled = [...cards].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+}
 
 async function main() {
     console.log("🌱 Starting database seed...");
 
+    await prisma.deckCard.deleteMany();
+    await prisma.deck.deleteMany();
     await prisma.card.deleteMany();
     await prisma.user.deleteMany();
 
@@ -28,20 +36,18 @@ async function main() {
         ],
     });
 
-    const redUser = await prisma.user.findUnique({where: {email: "red@example.com"}});
-    const blueUser = await prisma.user.findUnique({where: {email: "blue@example.com"}});
+    const redUser = await prisma.user.findUnique({ where: { email: "red@example.com" } });
+    const blueUser = await prisma.user.findUnique({ where: { email: "blue@example.com" } });
 
     if (!redUser || !blueUser) {
         throw new Error("Failed to create users");
     }
 
-    console.log("✅ Created users:", redUser.username, blueUser.username);
-
     const pokemonDataPath = join(__dirname, "data", "pokemon.json");
     const pokemonJson = readFileSync(pokemonDataPath, "utf-8");
     const pokemonData: CardModel[] = JSON.parse(pokemonJson);
 
-    const createdCards = await Promise.all(
+    await Promise.all(
         pokemonData.map((pokemon) =>
             prisma.card.create({
                 data: {
@@ -56,7 +62,39 @@ async function main() {
         )
     );
 
-    console.log(`✅ Created ${pokemonData.length} Pokemon cards`);
+    const allCards = await prisma.card.findMany();
+
+    // Création des decks
+    const redDeck = await prisma.deck.create({
+        data: {
+            name: "Starter Deck",
+            userId: redUser.id,
+        },
+    });
+
+    const blueDeck = await prisma.deck.create({
+        data: {
+            name: "Starter Deck",
+            userId: blueUser.id,
+        },
+    });
+
+    const redCards = getRandomCards(allCards, 10);
+    const blueCards = getRandomCards(allCards, 10);
+
+    await prisma.deckCard.createMany({
+        data: redCards.map((card) => ({
+            deckId: redDeck.id,
+            cardId: card.id,
+        })),
+    });
+
+    await prisma.deckCard.createMany({
+        data: blueCards.map((card) => ({
+            deckId: blueDeck.id,
+            cardId: card.id,
+        })),
+    });
 
     console.log("\n🎉 Database seeding completed!");
 }
