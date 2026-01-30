@@ -4,7 +4,7 @@ import { prisma } from "../database";
 export const cardsRouter = Router();
 
 // GET /api/cards
-cardsRouter.get('/cards', async (req: Request, res: Response) => {
+cardsRouter.get('/cards', async (_req: Request, res: Response) => {
     try {
         // Toute les cartes triés par pokedex numéro
         const cards = await prisma.card.findMany({
