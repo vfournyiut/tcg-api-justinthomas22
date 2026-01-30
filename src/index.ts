@@ -30,7 +30,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/auth",authRouter);
 
-app.use("/api", cardsRouter);
+app.use("/api/cards", cardsRouter);
 
 // Start server only if this file is run directly (not imported for tests)
 if (require.main === module) {
