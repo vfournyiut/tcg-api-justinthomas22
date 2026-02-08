@@ -1,0 +1,156 @@
+openapi: 3.0.0
+info:
+  title: TCG API Pokémon
+  version: 1.0.0
+  description: API de gestion de cartes et decks Pokémon avec authentification JWT
+  contact:
+    name: Justin Thomas
+    email: justin@example.com
+
+servers:
+  - url: http://localhost:3000
+    description: Serveur de développement
+  - url: https://api.example.com
+    description: Serveur de production
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Token JWT à obtenir via /api/auth/sign-in ou /api/auth/sign-up"
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+      required:
+        - id
+        - username
+        - email
+
+    Card:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Bulbizarre"
+        pokedexNumber:
+          type: integer
+          example: 1
+        hp:
+          type: integer
+          example: 45
+        attack:
+          type: integer
+          example: 49
+        type:
+          type: string
+          example: "Normal"
+        imgUrl:
+          type: string
+          format: uri
+          example: "https://example.com/pokemon/1.png"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - pokedexNumber
+        - hp
+        - attack
+        - type
+        - imgUrl
+
+    DeckCard:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        deckId:
+          type: integer
+          example: 1
+        cardId:
+          type: integer
+          example: 1
+        card:
+          $ref: "#/components/schemas/Card"
+      required:
+        - id
+        - deckId
+        - cardId
+
+    Deck:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Fire Deck"
+        userId:
+          type: integer
+          example: 1
+        deckCards:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeckCard"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - userId
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Message d'erreur"
+      required:
+        - error
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - token
+        - user
+
+tags:
+  - name: Authentication
+    description: Gestion de l'authentification (inscription et connexion)
+  - name: Cards
+    description: Gestion des cartes Pokémon
+  - name: Decks
+    description: Gestion des decks Pokémon

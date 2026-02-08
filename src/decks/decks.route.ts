@@ -4,7 +4,25 @@ import { authenticateToken } from "../auth/auth.middleware";
 
 export const decksRouter = Router();
 
-// POST /api/decks
+/**
+ * Route POST /api/decks
+ * 
+ * Crée un nouveau deck Pokémon composé de exactement 10 cartes.
+ * L'utilisateur doit être authentifié (nécessite un token JWT).
+ * 
+ * @param {Request} req - Requête avec Authorization header
+ * @param {Object} req.body - Données du deck
+ * @param {string} req.body.name - Nom du deck
+ * @param {Array<number>} req.body.cards - 10 numéros Pokédex
+ * @param {number} req.user.userId - ID utilisateur du token
+ * 
+ * @returns {Object} 201 - Deck créé avec ses cartes
+ * @throws {400} Nom manquant ou nombre de cartes invalide
+ * @throws {401} Token manquant ou invalide
+ * @throws {500} Erreur serveur
+ * 
+ * @async
+ */
 decksRouter.post("/", authenticateToken, async (req: Request, res: Response) => {
     const { name, cards } = req.body;
     const userId = req.user!.userId;
@@ -41,7 +59,20 @@ decksRouter.post("/", authenticateToken, async (req: Request, res: Response) => 
     }
 });
 
-// GET /api/decks/mine
+/**
+ * Route GET /api/decks/mine
+ * 
+ * Récupère la liste de tous les decks de l'utilisateur authentifié.
+ * 
+ * @param {Request} req - Requête avec Authorization header
+ * @param {number} req.user.userId - ID utilisateur du token
+ * 
+ * @returns {Array<Deck>} 200 - Tableau des decks de l'utilisateur
+ * @throws {401} Token manquant ou invalide
+ * @throws {500} Erreur serveur
+ * 
+ * @async
+ */
 decksRouter.get("/mine", authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.userId;
 
@@ -58,7 +89,23 @@ decksRouter.get("/mine", authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-// GET /api/decks/:id
+/**
+ * Route GET /api/decks/:id
+ * 
+ * Récupère un deck spécifique. L'utilisateur ne peut accéder qu'à ses propres decks.
+ * 
+ * @param {Request} req - Requête avec Authorization header et id dans les params
+ * @param {string} req.params.id - ID du deck
+ * @param {number} req.user.userId - ID utilisateur du token
+ * 
+ * @returns {Object} 200 - Détails du deck
+ * @throws {401} Token manquant ou invalide
+ * @throws {403} Accès refusé (pas propriétaire)
+ * @throws {404} Deck inexistant
+ * @throws {500} Erreur serveur
+ * 
+ * @async
+ */
 decksRouter.get("/:id", authenticateToken, async (req: Request, res: Response) => {
     const { id } = req.params;
     const userId = req.user!.userId;
@@ -81,7 +128,28 @@ decksRouter.get("/:id", authenticateToken, async (req: Request, res: Response) =
     }
 });
 
-// PATCH /api/decks/:id
+/**
+ * Route PATCH /api/decks/:id
+ * 
+ * Met à jour un deck (nom et/ou cartes). L'utilisateur ne peut modifier que ses propres decks.
+ * Si les cartes sont modifiées, elles doivent être exactement 10.
+ * 
+ * @param {Request} req - Requête avec Authorization header et id dans les params
+ * @param {string} req.params.id - ID du deck
+ * @param {Object} req.body - Données à mettre à jour
+ * @param {string} [req.body.name] - Nouveau nom (optionnel)
+ * @param {Array<number>} [req.body.cards] - Nouvelles cartes (optionnel, doit être 10 si fourni)
+ * @param {number} req.user.userId - ID utilisateur du token
+ * 
+ * @returns {Object} 200 - Deck mis à jour
+ * @throws {400} Nombre de cartes invalide
+ * @throws {401} Token manquant ou invalide
+ * @throws {403} Accès refusé (pas propriétaire)
+ * @throws {404} Deck inexistant
+ * @throws {500} Erreur serveur
+ * 
+ * @async
+ */
 decksRouter.patch("/:id", authenticateToken, async (req: Request, res: Response) => {
     const { id } = req.params;
     const { name, cards } = req.body;
@@ -125,7 +193,24 @@ decksRouter.patch("/:id", authenticateToken, async (req: Request, res: Response)
     }
 });
 
-// DELETE /api/decks/:id
+/**
+ * Route DELETE /api/decks/:id
+ * 
+ * Supprime un deck et toutes ses cartes associées (irréversible).
+ * L'utilisateur ne peut supprimer que ses propres decks.
+ * 
+ * @param {Request} req - Requête avec Authorization header et id dans les params
+ * @param {string} req.params.id - ID du deck à supprimer
+ * @param {number} req.user.userId - ID utilisateur du token
+ * 
+ * @returns {Object} 200 - Message de confirmation
+ * @throws {401} Token manquant ou invalide
+ * @throws {403} Accès refusé (pas propriétaire)
+ * @throws {404} Deck inexistant
+ * @throws {500} Erreur serveur
+ * 
+ * @async
+ */
 decksRouter.delete("/:id", authenticateToken, async (req: Request, res: Response) => {
     const { id } = req.params;
     const userId = req.user!.userId;

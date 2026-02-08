@@ -6,7 +6,28 @@ import {env} from "../env";
 
 export const authRouter = Router()
 
-// POST /api/auth/sign-up
+/**
+ * Route POST /api/auth/sign-up
+ * 
+ * Crée un nouvel utilisateur dans la base de données et génère un token JWT.
+ * Le mot de passe est hashé avec bcrypt avant d'être stocké.
+ * 
+ * @param {Object} req.body - Données de l'utilisateur
+ * @param {string} req.body.email - Adresse email unique
+ * @param {string} req.body.username - Nom d'utilisateur unique
+ * @param {string} req.body.password - Mot de passe (sera hashé avec bcrypt)
+ * 
+ * @returns {Object} 201 - Token JWT et données utilisateur créé
+ * @throws {400} Données manquantes
+ * @throws {409} Email déjà utilisé
+ * @throws {500} Erreur serveur
+ * 
+ * @example
+ * POST /api/auth/sign-up
+ * { "email": "alice@example.com", "username": "alice", "password": "SecurePassword123!" }
+ * 
+ * @async
+ */
 authRouter.post('/sign-up', async (req: Request, res: Response) => {
     const {email, username, password} = req.body
 
@@ -56,7 +77,27 @@ authRouter.post('/sign-up', async (req: Request, res: Response) => {
     }
 })
 
-//  POST /api/auth/sign-in
+/**
+ * Route POST /api/auth/sign-in
+ * 
+ * Authentifie un utilisateur existant en validant ses identifiants.
+ * Génère et retourne un token JWT valide 7 jours.
+ * 
+ * @param {Object} req.body - Identifiants de l'utilisateur
+ * @param {string} req.body.email - Adresse email enregistrée
+ * @param {string} req.body.password - Mot de passe en clair
+ * 
+ * @returns {Object} 200 - Token JWT et données utilisateur
+ * @throws {400} Données manquantes
+ * @throws {401} Email ou mot de passe incorrect
+ * @throws {500} Erreur serveur
+ * 
+ * @example
+ * POST /api/auth/sign-in
+ * { "email": "alice@example.com", "password": "SecurePassword123!" }
+ * 
+ * @async
+ */
 authRouter.post('/sign-in', async (req: Request, res: Response) => {
     const {email, password} = req.body
 
