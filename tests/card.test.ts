@@ -1,22 +1,29 @@
 import request from 'supertest'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { app } from '../src/index'
 import { prismaMock } from './vitest.setup'
+import type { CardModel as Card } from '../src/generated/prisma/models'
+import { PokemonType } from '../src/generated/prisma/enums'
+
+// Mock du middleware d'authentification
+vi.mock('../src/auth/auth.middleware', () => ({
+  authenticateToken: vi.fn((req, res, next) => {
+    req.user = { userId: 1, email: 'test@test.com' }
+    next()
+  })
+}))
 
 describe('Routes des cartes', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
 
   describe('GET /api/cards', () => {
     it('devrait renvoyer un tableau de cartes', async () => {
-      const mockCards = [
+      const mockCards: Card[] = [
         {
           id: 1,
           name: 'Pikachu',
           hp: 35,
           attack: 55,
-          type: 'Electric',
+          type: PokemonType.Electric,
           pokedexNumber: 25,
           imgUrl: 'https://example.com/pikachu.png',
           createdAt: new Date(),
@@ -27,7 +34,7 @@ describe('Routes des cartes', () => {
           name: 'Raichu',
           hp: 60,
           attack: 90,
-          type: 'Electric',
+          type: PokemonType.Electric,
           pokedexNumber: 26,
           imgUrl: 'https://example.com/raichu.png',
           createdAt: new Date(),
@@ -38,7 +45,7 @@ describe('Routes des cartes', () => {
           name: 'Bulbasaur',
           hp: 45,
           attack: 49,
-          type: 'Grass',
+          type: PokemonType.Grass,
           pokedexNumber: 1,
           imgUrl: 'https://example.com/bulbasaur.png',
           createdAt: new Date(),
@@ -46,7 +53,7 @@ describe('Routes des cartes', () => {
         },
       ]
 
-      prismaMock.card.findMany.mockResolvedValue(mockCards as any)
+      prismaMock.card.findMany.mockResolvedValue(mockCards)
 
       const res = await request(app).get('/api/cards')
 
@@ -60,13 +67,13 @@ describe('Routes des cartes', () => {
     })
 
     it('devrait renvoyer les cartes triées par numéro dans le Pokédex croissant', async () => {
-      const mockCards = [
+      const mockCards: Card[] = [
         {
           id: 1,
           name: 'Bulbasaur',
           hp: 45,
           attack: 49,
-          type: 'Grass',
+          type: PokemonType.Grass,
           pokedexNumber: 1,
           imgUrl: 'https://example.com/bulbasaur.png',
           createdAt: new Date(),
@@ -77,7 +84,7 @@ describe('Routes des cartes', () => {
           name: 'Ivysaur',
           hp: 60,
           attack: 62,
-          type: 'Grass',
+          type: PokemonType.Grass,
           pokedexNumber: 2,
           imgUrl: 'https://example.com/ivysaur.png',
           createdAt: new Date(),
@@ -88,7 +95,7 @@ describe('Routes des cartes', () => {
           name: 'Venusaur',
           hp: 80,
           attack: 82,
-          type: 'Grass',
+          type: PokemonType.Grass,
           pokedexNumber: 3,
           imgUrl: 'https://example.com/venusaur.png',
           createdAt: new Date(),
@@ -96,7 +103,7 @@ describe('Routes des cartes', () => {
         },
       ]
 
-      prismaMock.card.findMany.mockResolvedValue(mockCards as any)
+      prismaMock.card.findMany.mockResolvedValue(mockCards)
 
       const res = await request(app).get('/api/cards')
 

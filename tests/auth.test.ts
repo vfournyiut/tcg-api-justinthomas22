@@ -1,99 +1,96 @@
 import request from 'supertest'
-import { describe, it, beforeEach, expect, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { app } from '../src/index'
 import { prismaMock } from './vitest.setup'
 
-describe('Routes d\'authentification', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+vi.mock('bcryptjs', () => ({
+  default: {
+    hash: vi.fn(),
+    compare: vi.fn(),
+  },
+}))
+
+vi.mock('jsonwebtoken', () => ({
+  default: {
+    sign: vi.fn(),
+  },
+}))
+
+describe("Routes d'authentification", () => {
 
   describe('POST /api/auth/sign-up', () => {
-    it('devrait renvoyer 400 si l\'email est manquant', async () => {
-      const res = await request(app)
-        .post('/api/auth/sign-up')
-        .send({ username: 'test', password: 'pass123' })
-
-      expect(res.status).toBe(400)
-      expect(res.body).toHaveProperty('error', 'Données manquantes')
+    it('renvoie 400 si les données sont manquantes ou invalides', async () => {
+      const cases = [
+        { username: 'test', password: 'pass123' },
+        { email: 'test@test.fr', password: 'pass123' },
+        { email: 'test@test.fr', username: 'test' },
+        {}
+      ]
+      for (const body of cases) {
+        const res = await request(app).post('/api/auth/sign-up').send(body)
+        expect(res.status).toBe(400)
+        expect(res.body).toHaveProperty('error', 'Données manquantes')
+      }
     })
 
-    it('devrait renvoyer 400 si le nom d\'utilisateur est manquant', async () => {
-      const res = await request(app)
-        .post('/api/auth/sign-up')
-        .send({ email: 'test@test.fr', password: 'pass123' })
-
-      expect(res.status).toBe(400)
-      expect(res.body).toHaveProperty('error', 'Données manquantes')
-    })
-
-    it('devrait renvoyer 400 si le mot de passe est manquant', async () => {
-      const res = await request(app)
-        .post('/api/auth/sign-up')
-        .send({ email: 'test@test.fr', username: 'test' })
-
-      expect(res.status).toBe(400)
-      expect(res.body).toHaveProperty('error', 'Données manquantes')
-    })
-
-    it('devrait renvoyer 400 si toutes les données sont manquantes', async () => {
-      const res = await request(app)
-        .post('/api/auth/sign-up')
-        .send({})
-
-      expect(res.status).toBe(400)
-      expect(res.body).toHaveProperty('error', 'Données manquantes')
-    })
-
-    it('devrait renvoyer 409 si l\'email existe déjà', async () => {
+    it('renvoie 409 si l’email existe déjà', async () => {
       prismaMock.user.findUnique.mockResolvedValue({
         id: 1,
         email: 'existing@test.fr',
-        username: 'existing',
-        password: 'hashedpass',
-      } as any)
+
+      })
 
       const res = await request(app)
         .post('/api/auth/sign-up')
-        .send({ email: 'existing@test.fr', username: 'newuser', password: 'pass123' })
+        .send({
+          email: 'existing@test.fr',
+          username: 'newuser',
+          password: 'pass123',
+        })
 
       expect(res.status).toBe(409)
       expect(res.body).toHaveProperty('error', 'Email déjà utilisé')
     })
 
-    it('devrait créer l\'utilisateur et renvoyer le token', async () => {
+    it("crée un utilisateur et renvoie le token", async () => {
       prismaMock.user.findUnique.mockResolvedValue(null)
-      ;(bcrypt.hash as any).mockResolvedValue('hashedpassword123')
+      vi.mocked(bcrypt.hash).mockImplementation(async () => 'hashedpassword123')
       prismaMock.user.create.mockResolvedValue({
         id: 1,
         email: 'newuser@test.fr',
         username: 'newuser',
-        password: 'hashedpassword123',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any)
-      ;(jwt.sign as any).mockReturnValue('jwt_token_123')
+      })
+      vi.mocked(jwt.sign).mockImplementation(() => 'jwt_token_123')
 
       const res = await request(app)
         .post('/api/auth/sign-up')
-        .send({ email: 'newuser@test.fr', username: 'newuser', password: 'pass123' })
+        .send({
+          email: 'newuser@test.fr',
+          username: 'newuser',
+          password: 'pass123',
+        })
 
       expect(res.status).toBe(201)
       expect(res.body).toHaveProperty('token', 'jwt_token_123')
-      expect(res.body).toHaveProperty('user')
-      expect(res.body.user).toHaveProperty('id', 1)
-      expect(res.body.user).toHaveProperty('email', 'newuser@test.fr')
-      expect(res.body.user).toHaveProperty('username', 'newuser')
+      expect(res.body.user).toMatchObject({
+        id: 1,
+        email: 'newuser@test.fr',
+        username: 'newuser',
+      })
     })
 
-    it('devrait renvoyer 500 en cas d\'erreur serveur', async () => {
+    it('renvoie 500 en cas d’erreur serveur', async () => {
       prismaMock.user.findUnique.mockRejectedValue(new Error('Database error'))
 
       const res = await request(app)
         .post('/api/auth/sign-up')
-        .send({ email: 'test@test.fr', username: 'test', password: 'pass123' })
+        .send({
+          email: 'test@test.fr',
+          username: 'test',
+          password: 'pass123',
+        })
 
       expect(res.status).toBe(500)
       expect(res.body).toHaveProperty('error', 'Erreur serveur')
@@ -101,62 +98,45 @@ describe('Routes d\'authentification', () => {
   })
 
   describe('POST /api/auth/sign-in', () => {
-    it('devrait renvoyer 400 si l\'email est manquant', async () => {
-      const res = await request(app)
-        .post('/api/auth/sign-in')
-        .send({ password: 'pass123' })
-
-      expect(res.status).toBe(400)
-      expect(res.body).toHaveProperty('error', 'Données manquantes')
+    it('renvoie 400 si les données sont manquantes', async () => {
+      const cases = [
+        { password: 'pass123' },
+        { email: 'test@test.fr' },
+        {}
+      ]
+      for (const body of cases) {
+        const res = await request(app).post('/api/auth/sign-in').send(body)
+        expect(res.status).toBe(400)
+        expect(res.body).toHaveProperty('error', 'Données manquantes')
+      }
     })
 
-    it('devrait renvoyer 400 si le mot de passe est manquant', async () => {
-      const res = await request(app)
-        .post('/api/auth/sign-in')
-        .send({ email: 'test@test.fr' })
-
-      expect(res.status).toBe(400)
-      expect(res.body).toHaveProperty('error', 'Données manquantes')
-    })
-
-    it('devrait renvoyer 400 si toutes les données sont manquantes', async () => {
-      const res = await request(app)
-        .post('/api/auth/sign-in')
-        .send({})
-
-      expect(res.status).toBe(400)
-      expect(res.body).toHaveProperty('error', 'Données manquantes')
-    })
-
-    it('devrait renvoyer 401 si l\'utilisateur n\'existe pas', async () => {
+    it("renvoie 401 si l'utilisateur n'existe pas ou mot de passe incorrect", async () => {
       prismaMock.user.findUnique.mockResolvedValue(null)
-
-      const res = await request(app)
+      let res = await request(app)
         .post('/api/auth/sign-in')
-        .send({ email: 'nonexistent@test.fr', password: 'pass123' })
-
+        .send({ email: 'mail@test.fr', password: 'pass123' })
       expect(res.status).toBe(401)
       expect(res.body).toHaveProperty('error', 'Email ou mot de passe incorrect')
-    })
 
-    it('devrait renvoyer 401 si le mot de passe est incorrect', async () => {
       prismaMock.user.findUnique.mockResolvedValue({
         id: 1,
         email: 'user@test.fr',
         username: 'user',
         password: 'hashedpassword',
-      } as any)
-      ;(bcrypt.compare as any).mockResolvedValue(false)
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      vi.mocked(bcrypt.compare).mockImplementation(async () => false)
 
-      const res = await request(app)
+      res = await request(app)
         .post('/api/auth/sign-in')
         .send({ email: 'user@test.fr', password: 'wrongpassword' })
-
       expect(res.status).toBe(401)
       expect(res.body).toHaveProperty('error', 'Email ou mot de passe incorrect')
     })
 
-    it('devrait renvoyer 200 et le token si les identifiants sont corrects', async () => {
+    it('auth réussie renvoie 200 et token', async () => {
       prismaMock.user.findUnique.mockResolvedValue({
         id: 2,
         email: 'user@test.fr',
@@ -164,9 +144,9 @@ describe('Routes d\'authentification', () => {
         password: 'hashedpassword',
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any)
-      ;(bcrypt.compare as any).mockResolvedValue(true)
-      ;(jwt.sign as any).mockReturnValue('jwt_token_456')
+      })
+      vi.mocked(bcrypt.compare).mockImplementation(async () => true)
+      vi.mocked(jwt.sign).mockImplementation(() => 'jwt_token_456')
 
       const res = await request(app)
         .post('/api/auth/sign-in')
@@ -174,12 +154,13 @@ describe('Routes d\'authentification', () => {
 
       expect(res.status).toBe(200)
       expect(res.body).toHaveProperty('token', 'jwt_token_456')
-      expect(res.body).toHaveProperty('user')
-      expect(res.body.user).toHaveProperty('id', 2)
-      expect(res.body.user).toHaveProperty('email', 'user@test.fr')
+      expect(res.body.user).toMatchObject({
+        id: 2,
+        email: 'user@test.fr',
+      })
     })
 
-    it('devrait renvoyer 500 en cas d\'erreur serveur', async () => {
+    it('renvoie 500 en cas d’erreur serveur', async () => {
       prismaMock.user.findUnique.mockRejectedValue(new Error('Database error'))
 
       const res = await request(app)
@@ -192,12 +173,13 @@ describe('Routes d\'authentification', () => {
   })
 
   describe('GET /api/health', () => {
-    it('devrait renvoyer un statut ok', async () => {
+    it('renvoie un statut ok', async () => {
       const res = await request(app).get('/api/health')
-
       expect(res.status).toBe(200)
-      expect(res.body).toHaveProperty('status', 'ok')
-      expect(res.body).toHaveProperty('message', 'TCG Backend Server is running')
+      expect(res.body).toMatchObject({
+        status: 'ok',
+        message: 'TCG Backend Server is running',
+      })
     })
   })
 })

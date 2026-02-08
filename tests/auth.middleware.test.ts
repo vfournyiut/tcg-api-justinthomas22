@@ -1,62 +1,83 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import request from 'supertest'
-import { app } from '../src/index'
+import { describe, it, expect, vi } from 'vitest'
+import { Request, Response } from 'express'
+import { authenticateToken } from '../src/auth/auth.middleware'
 import jwt from 'jsonwebtoken'
 
-describe('Middleware d\'authentification ', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  describe('Authentification sur les endpoints', () => {
-    it('devrait authentifier l\'utilisateur avec un middleware simulé valide', async () => {
-      const res = await request(app)
-        .get('/api/decks/mine')
-        .set('Authorization', 'Bearer valid_token')
-
-      expect(res.status).not.toBe(401)
-    })
-
-    it('devrait gérer les requêtes sans header Authorization via le middleware', async () => {
-      const res = await request(app).get('/api/decks/mine')
-
-      expect(res.status).not.toBe(401)
-    })
-  })
-
-  describe('Vérification JWT et extraction du token', () => {
-
-    it('devrait appeler jwt.verify si un token existe', () => {
-      ;(jwt.verify as any).mockReturnValue({ userId: 1, email: 'test@test.com' })
-      
-      const authHeader = 'Bearer valid_token'
-      const token = authHeader.split(' ')[1]
-      
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string)
-        expect(decoded).toEqual({ userId: 1, email: 'test@test.com' })
-      } catch (error) {
-        throw error
+describe('Middleware d\'authentification', () => {
+  describe('Gestion du token manquant', () => {
+    it('devrait retourner 401 si pas de header Authorization', () => {
+      const mockReq: any = {
+        headers: {},
+        user: undefined,
       }
-    })
+      const jsonSpy = vi.fn().mockReturnValue({ error: '' })
+      const mockRes: any = {
+        status: vi.fn().mockReturnValue({ json: jsonSpy }),
+      }
+      const mockNext = vi.fn()
 
-    it('devrait gérer proprement les erreurs JWT', () => {
-      ;(jwt.verify as any).mockImplementation(() => {
+      authenticateToken(mockReq as Request, mockRes as Response, mockNext)
+
+      expect(mockRes.status).toHaveBeenCalledWith(401)
+      expect(jsonSpy).toHaveBeenCalledWith({ error: 'Token manquant' })
+      expect(mockNext).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Vérification JWT valide', () => {
+    it('devrait appeler next() et définir req.user si token valide', () => {
+      const validToken = 'valid.jwt.token'
+      const decodedUser = { userId: 1, email: 'test@test.com' }
+      
+      const mockReq: any = {
+        headers: {
+          authorization: `Bearer ${validToken}`,
+        },
+        user: undefined,
+      }
+      const mockNext = vi.fn()
+      const jsonSpy = vi.fn().mockReturnValue({ error: '' })
+      const mockRes: any = {
+        status: vi.fn().mockReturnValue({ json: jsonSpy }),
+      }
+      
+      vi.mocked(jwt.verify).mockReturnValue(decodedUser as any)
+
+      authenticateToken(mockReq as Request, mockRes as Response, mockNext)
+
+      expect(jwt.verify).toHaveBeenCalledWith(validToken, process.env.JWT_SECRET)
+      expect(mockReq.user).toEqual(decodedUser)
+      expect(mockNext).toHaveBeenCalled()
+      expect(mockRes.status).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Gestion des erreurs JWT', () => {
+    it('devrait retourner 401 si token invalide', () => {
+      const invalidToken = 'invalid.token'
+      
+      const mockReq: any = {
+        headers: {
+          authorization: `Bearer ${invalidToken}`,
+        },
+        user: undefined,
+      }
+      const jsonSpy = vi.fn().mockReturnValue({ error: '' })
+      const mockRes: any = {
+        status: vi.fn().mockReturnValue({ json: jsonSpy }),
+      }
+      const mockNext = vi.fn()
+      
+      vi.mocked(jwt.verify).mockImplementation(() => {
         throw new Error('Token invalide')
       })
 
-      const authHeader = 'Bearer invalid_token'
-      const token = authHeader.split(' ')[1]
+      authenticateToken(mockReq as Request, mockRes as Response, mockNext)
 
-      let erreurAttrapee = false
-      try {
-        jwt.verify(token, process.env.JWT_SECRET as string)
-      } catch (error) {
-        erreurAttrapee = true
-        expect(error).toBeDefined()
-      }
-
-      expect(erreurAttrapee).toBe(true)
+      expect(mockRes.status).toHaveBeenCalledWith(401)
+      expect(jsonSpy).toHaveBeenCalledWith({ error: 'Token invalide ou expiré' })
+      expect(mockNext).not.toHaveBeenCalled()
     })
+
   })
 })

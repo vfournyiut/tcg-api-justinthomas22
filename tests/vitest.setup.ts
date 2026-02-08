@@ -11,16 +11,6 @@ vi.mock('bcryptjs');
 
 vi.mock('jsonwebtoken');
 
-vi.mock('../src/auth/auth.middleware', () => ({
-    authenticateToken: vi.fn((req, res, next) => {
-        req.user = {
-            userId: 1,
-            email: 'test@test.com'
-        }
-        next()
-    }),
-}));
-
 beforeEach(() => {
     mockReset(prismaMock);
 });

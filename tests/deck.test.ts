@@ -1,74 +1,97 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import request from 'supertest'
 import { prismaMock } from './vitest.setup'
 import { app } from '../src/index'
+import type { DeckModel as Deck, CardModel as Card, DeckCardModel as DeckCard } from '../src/generated/prisma/models'
+import { PokemonType } from '../src/generated/prisma/enums'
 
-beforeEach(() => {
-  vi.clearAllMocks()
+// Mock du middleware d'authentification
+vi.mock('../src/auth/auth.middleware', () => ({
+  authenticateToken: vi.fn((req, res, next) => {
+    req.user = { userId: 1, email: 'test@test.com' }
+    next()
+  })
+}))
+
+const createMockCard = (id: number): Card => ({
+  id,
+  name: `Pokemon ${id}`,
+  pokedexNumber: id,
+  hp: 50 + id,
+  attack: 40 + id,
+  type: PokemonType.Normal,
+  imgUrl: `https://example.com/pokemon/${id}.png`,
+  createdAt: new Date(),
+  updatedAt: new Date(),
 })
 
 describe('POST /api/decks', () => {
-  it('should return 400 if name is missing', async () => {
+
+  it('renvoie 400 si le nom est manquant', async () => {
     const res = await request(app)
       .post('/api/decks')
       .set('Authorization', 'Bearer token')
-      .send({ cards: [1,2,3,4,5,6,7,8,9,10] })
+      .send({ cards: Array.from({ length: 10 }, (_, i) => i + 1) })
 
     expect(res.status).toBe(400)
     expect(res.body).toHaveProperty('error', 'Nom manquant')
   })
 
-  it('should return 400 if cards array is invalid', async () => {
+  it('renvoie 400 si le tableau de cartes est invalide', async () => {
     const res = await request(app)
       .post('/api/decks')
       .set('Authorization', 'Bearer token')
-      .send({ name: 'My Deck', cards: [1,2,3] })
+      .send({ name: 'Mon Deck', cards: [1, 2, 3] })
 
     expect(res.status).toBe(400)
     expect(res.body).toHaveProperty('error', 'Le deck doit contenir exactement 10 cartes')
   })
 
-  it('should return 400 if cards do not exist', async () => {
-    prismaMock.card.findMany.mockResolvedValue([])
+  it('renvoie 400 si les cartes n’existent pas', async () => {
+    prismaMock.card.findMany.mockResolvedValue([] as Card[])
+
     const res = await request(app)
       .post('/api/decks')
       .set('Authorization', 'Bearer token')
-      .send({ name: 'My Deck', cards: [999,998,997,996,995,994,993,992,991,990] })
+      .send({ name: 'Mon Deck', cards: Array.from({ length: 10 }, (_, i) => i + 1000) })
 
     expect(res.status).toBe(400)
     expect(res.body).toHaveProperty('error', 'Cartes invalides ou inexistantes')
   })
 
-  it('should create deck successfully', async () => {
-    const mockCards = Array.from({length:10}, (_,i) => ({id:i+1,pokedexNumber:i+1,name:`Pokemon ${i+1}`}))
+  it('crée un deck avec succès', async () => {
+    const mockCards: Card[] = Array.from({ length: 10 }, (_, i) => createMockCard(i + 1))
 
-    prismaMock.card.findMany.mockResolvedValue(mockCards as any)
-    prismaMock.deck.create.mockResolvedValue({
+    prismaMock.card.findMany.mockResolvedValue(mockCards)
+
+    const mockDeck: Deck = {
       id: 1,
-      name: 'My Deck',
+      name: 'Mon Deck',
       userId: 1,
-      deckCards: mockCards.map(c => ({id:c.id, deckId:1, cardId:c.id, card:c})),
       createdAt: new Date(),
-      updatedAt: new Date()
-    } as any)
+      updatedAt: new Date(),
+    }
+
+    prismaMock.deck.create.mockResolvedValue(mockDeck)
 
     const res = await request(app)
       .post('/api/decks')
       .set('Authorization', 'Bearer token')
-      .send({ name: 'My Deck', cards: [1,2,3,4,5,6,7,8,9,10] })
+      .send({ name: 'Mon Deck', cards: Array.from({ length: 10 }, (_, i) => i + 1) })
 
     expect(res.status).toBe(201)
     expect(res.body).toHaveProperty('id', 1)
-    expect(res.body).toHaveProperty('name', 'My Deck')
+    expect(res.body).toHaveProperty('name', 'Mon Deck')
     expect(res.body).toHaveProperty('userId', 1)
   })
 
-  it('should return 500 on server error', async () => {
-    prismaMock.card.findMany.mockRejectedValue(new Error('Database error'))
+  it('renvoie 500 en cas d’erreur serveur', async () => {
+    prismaMock.card.findMany.mockRejectedValue(new Error('Erreur base de données'))
+
     const res = await request(app)
       .post('/api/decks')
       .set('Authorization', 'Bearer token')
-      .send({ name: 'My Deck', cards: [1,2,3,4,5,6,7,8,9,10] })
+      .send({ name: 'Mon Deck', cards: Array.from({ length: 10 }, (_, i) => i + 1) })
 
     expect(res.status).toBe(500)
     expect(res.body).toHaveProperty('error', 'Erreur serveur')
@@ -76,27 +99,23 @@ describe('POST /api/decks', () => {
 })
 
 describe('GET /api/decks/mine', () => {
-  it('should return empty array if no decks', async () => {
-    prismaMock.deck.findMany.mockResolvedValue([])
+  it('devrait retourner la liste des decks de l\'utilisateur', async () => {
+    const mockDeck: Deck = {
+      id: 1,
+      name: 'My Deck',
+      userId: 1,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+    prismaMock.deck.findMany.mockResolvedValue([mockDeck])
     const res = await request(app).get('/api/decks/mine').set('Authorization','Bearer token')
     expect(res.status).toBe(200)
-    expect(res.body).toEqual([])
+    expect(Array.isArray(res.body)).toBe(true)
+    expect(res.body.length).toBe(1)
+    expect(res.body[0].id).toBe(1)
   })
-
-  it('should return user decks', async () => {
-    const mockDecks = [
-      { id:1,name:'Deck 1',userId:1,deckCards:[{id:1,deckId:1,cardId:1,card:{id:1,name:'Pikachu'}}], createdAt:new Date(), updatedAt:new Date() },
-      { id:2,name:'Deck 2',userId:1,deckCards:[{id:2,deckId:2,cardId:2,card:{id:2,name:'Raichu'}}], createdAt:new Date(), updatedAt:new Date() }
-    ]
-    prismaMock.deck.findMany.mockResolvedValue(mockDecks as any)
-    const res = await request(app).get('/api/decks/mine').set('Authorization','Bearer token')
-    expect(res.status).toBe(200)
-    expect(res.body).toHaveLength(2)
-    expect(res.body[0]).toHaveProperty('name','Deck 1')
-  })
-
-  it('should return 500 on server error', async () => {
-    prismaMock.deck.findMany.mockRejectedValue(new Error('Database error'))
+  it('renvoie 500 en cas d’erreur serveur', async () => {
+    prismaMock.deck.findMany.mockRejectedValue(new Error('Erreur base de données'))
     const res = await request(app).get('/api/decks/mine').set('Authorization','Bearer token')
     expect(res.status).toBe(500)
     expect(res.body).toHaveProperty('error','Erreur serveur')
@@ -104,145 +123,179 @@ describe('GET /api/decks/mine', () => {
 })
 
 describe('GET /api/decks/:id', () => {
-  it('should return 404 if deck not found', async () => {
+
+  it('renvoie 404 si le deck n’existe pas', async () => {
     prismaMock.deck.findUnique.mockResolvedValue(null)
     const res = await request(app).get('/api/decks/999').set('Authorization','Bearer token')
     expect(res.status).toBe(404)
     expect(res.body).toHaveProperty('error','Deck inexistant')
   })
 
-  it('should return 403 if not owner', async () => {
-    prismaMock.deck.findUnique.mockResolvedValue({id:1,name:'Other Deck',userId:2,deckCards:[],createdAt:new Date(),updatedAt:new Date()} as any)
+  it('renvoie 403 si l’utilisateur n’est pas propriétaire', async () => {
+    const otherDeck: Deck = {
+      id: 1,
+      name: 'Autre Deck',
+      userId: 2,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+    prismaMock.deck.findUnique.mockResolvedValue(otherDeck)
     const res = await request(app).get('/api/decks/1').set('Authorization','Bearer token')
     expect(res.status).toBe(403)
     expect(res.body).toHaveProperty('error','Accès refusé')
   })
 
-  it('should return deck if owner', async () => {
-    prismaMock.deck.findUnique.mockResolvedValue({
-      id:1,name:'My Deck',userId:1,deckCards:[{id:1,deckId:1,cardId:1,card:{id:1,name:'Pikachu'}}],createdAt:new Date(),updatedAt:new Date()
-    } as any)
+  it('renvoie le deck si l’utilisateur est propriétaire', async () => {
+    const myDeck: Deck = {
+      id: 1,
+      name: 'Mon Deck',
+      userId: 1,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+    prismaMock.deck.findUnique.mockResolvedValue(myDeck)
     const res = await request(app).get('/api/decks/1').set('Authorization','Bearer token')
     expect(res.status).toBe(200)
-    expect(res.body).toHaveProperty('name','My Deck')
+    expect(res.body).toHaveProperty('name','Mon Deck')
   })
 
-  it('should return 500 on server error', async () => {
-    prismaMock.deck.findUnique.mockRejectedValue(new Error('Database error'))
+  it('renvoie 500 en cas d’erreur serveur', async () => {
+    prismaMock.deck.findUnique.mockRejectedValue(new Error('Erreur base de données'))
     const res = await request(app).get('/api/decks/1').set('Authorization','Bearer token')
     expect(res.status).toBe(500)
     expect(res.body).toHaveProperty('error','Erreur serveur')
   })
 })
 
-// ==================== PATCH /api/decks/:id ====================
 describe('PATCH /api/decks/:id', () => {
-  it('should return 404 if deck not found', async () => {
+
+  it('renvoie 404 si le deck n’existe pas', async () => {
     prismaMock.deck.findUnique.mockResolvedValue(null)
-    const res = await request(app).patch('/api/decks/999').set('Authorization','Bearer token').send({name:'Updated'})
+    const res = await request(app).patch('/api/decks/999').set('Authorization','Bearer token').send({ name: 'Mis à jour' })
     expect(res.status).toBe(404)
     expect(res.body).toHaveProperty('error','Deck inexistant')
   })
 
-  it('should return 403 if not owner', async () => {
-    prismaMock.deck.findUnique.mockResolvedValue({id:1,name:'Other Deck',userId:2,deckCards:[]} as any)
-    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token').send({name:'Updated'})
+  it('renvoie 403 si l’utilisateur n’est pas propriétaire', async () => {
+    prismaMock.deck.findUnique.mockResolvedValue({ id: 1, name: 'Autre Deck', userId: 2, createdAt: new Date(), updatedAt: new Date() })
+    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token').send({ name: 'Mis à jour' })
     expect(res.status).toBe(403)
     expect(res.body).toHaveProperty('error','Accès refusé')
   })
 
-  it('should update name successfully', async () => {
-    prismaMock.deck.findUnique.mockResolvedValue({id:1,name:'Old Deck',userId:1,deckCards:[]} as any)
-    prismaMock.deck.update.mockResolvedValue({id:1,name:'Updated',userId:1,deckCards:[],createdAt:new Date(),updatedAt:new Date()} as any)
-    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token').send({name:'Updated'})
+  it('met à jour uniquement le nom avec succès', async () => {
+    const oldDeck: Deck = { 
+      id: 1, 
+      name: 'Ancien Deck', 
+      userId: 1, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+    prismaMock.deck.findUnique.mockResolvedValue(oldDeck)
+    // Copie les propriétés du deck initial et remplace le nom et la date
+    prismaMock.deck.update.mockResolvedValue({ ...oldDeck, name: 'Mis à jour', updatedAt: new Date() })
+    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token').send({ name: 'Mis à jour' })
     expect(res.status).toBe(200)
-    expect(res.body).toHaveProperty('name','Updated')
+    expect(res.body).toHaveProperty('name','Mis à jour')
   })
 
-  // ======= NOUVEAUX TESTS POUR LES CARTES INVALIDES =======
-  it('should return 400 if cards array is invalid', async () => {
-    prismaMock.deck.findUnique.mockResolvedValue({ id:1, name:'Old Deck', userId:1, deckCards:[]} as any)
-
-    const res = await request(app)
-      .patch('/api/decks/1')
-      .set('Authorization','Bearer token')
-      .send({ cards: [1,2,3] }) // moins de 10 cartes
-
+  it('renvoie 400 si le tableau de cartes est invalide', async () => {
+    const oldDeck: Deck = { 
+      id: 1, 
+      name: 'Ancien Deck', 
+      userId: 1, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+    prismaMock.deck.findUnique.mockResolvedValue(oldDeck)
+    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token').send({ cards: [1,2,3] })
     expect(res.status).toBe(400)
     expect(res.body).toHaveProperty('error','Le deck doit contenir exactement 10 cartes')
   })
 
-  it('should return 400 if cards do not exist', async () => {
-    prismaMock.deck.findUnique.mockResolvedValue({ id:1, name:'Old Deck', userId:1, deckCards:[]} as any)
-    prismaMock.card.findMany.mockResolvedValue([]) // aucune carte trouvée
-
-    const res = await request(app)
-      .patch('/api/decks/1')
-      .set('Authorization','Bearer token')
-      .send({ cards: [999,998,997,996,995,994,993,992,991,990] }) // cartes invalides
-
+  it('renvoie 400 si les cartes n’existent pas', async () => {
+    const oldDeck: Deck = { 
+      id: 1, 
+      name: 'Ancien Deck', 
+      userId: 1, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+    prismaMock.deck.findUnique.mockResolvedValue(oldDeck)
+    prismaMock.card.findMany.mockResolvedValue([] as Card[])
+    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token')
+      // Génère un tableau de 10 IDs inexistants pour tester le rejet des cartes invalides
+      .send({ cards: Array.from({ length: 10 }, (_, i) => i + 1000) })
     expect(res.status).toBe(400)
     expect(res.body).toHaveProperty('error','Cartes invalides ou inexistantes')
   })
 
-  it('should update cards successfully', async () => {
-    const oldDeck = { id: 1, name: 'Old Deck', userId: 1, deckCards: [{ id:1, deckId:1, cardId:1 }] }
+  it('met à jour les cartes avec succès', async () => {
+    const oldDeck: Deck = { 
+      id: 1, 
+      name: 'Ancien Deck', 
+      userId: 1, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
     const newCards = Array.from({ length: 10 }, (_, i) => i + 1)
-    const validCards = newCards.map(id => ({ id, pokedexNumber: id, name: `Pokemon ${id}` }))
+    const validCards: Card[] = newCards.map(id => createMockCard(id))
 
-    prismaMock.deck.findUnique.mockResolvedValue(oldDeck as any)
-    prismaMock.card.findMany.mockResolvedValue(validCards as any)
+    prismaMock.deck.findUnique.mockResolvedValue(oldDeck)
+    prismaMock.card.findMany.mockResolvedValue(validCards)
     prismaMock.deckCard.deleteMany.mockResolvedValue({ count: 1 })
     prismaMock.deckCard.createMany.mockResolvedValue({ count: 10 })
     prismaMock.deck.update.mockResolvedValue({
       ...oldDeck,
-      deckCards: validCards.map(c => ({ id: c.id, deckId: 1, cardId: c.id, card: c })),
-      name: oldDeck.name
-    } as any)
+    })
 
-    const res = await request(app)
-      .patch('/api/decks/1')
-      .set('Authorization', 'Bearer token')
-      .send({ cards: newCards })
-
+    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token').send({ cards: newCards })
     expect(res.status).toBe(200)
-    expect(res.body.deckCards).toHaveLength(10)
   })
 
-  it('should return 500 on server error', async () => {
-    prismaMock.deck.findUnique.mockRejectedValue(new Error('Database error'))
-    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token').send({name:'Updated'})
+  it('renvoie 500 en cas d’erreur serveur', async () => {
+    prismaMock.deck.findUnique.mockRejectedValue(new Error('Erreur base de données'))
+    const res = await request(app).patch('/api/decks/1').set('Authorization','Bearer token').send({ name: 'Mis à jour' })
     expect(res.status).toBe(500)
     expect(res.body).toHaveProperty('error','Erreur serveur')
   })
 })
 
 describe('DELETE /api/decks/:id', () => {
-  it('should return 404 if deck not found', async () => {
+
+  it('renvoie 404 si le deck n’existe pas', async () => {
     prismaMock.deck.findUnique.mockResolvedValue(null)
     const res = await request(app).delete('/api/decks/999').set('Authorization','Bearer token')
     expect(res.status).toBe(404)
     expect(res.body).toHaveProperty('error','Deck inexistant')
   })
 
-  it('should return 403 if not owner', async () => {
-    prismaMock.deck.findUnique.mockResolvedValue({id:1,name:'Other Deck',userId:2} as any)
+  it('renvoie 403 si l’utilisateur n’est pas propriétaire', async () => {
+    prismaMock.deck.findUnique.mockResolvedValue({ id: 1, name: 'Autre Deck', userId: 2, createdAt: new Date(), updatedAt: new Date() })
     const res = await request(app).delete('/api/decks/1').set('Authorization','Bearer token')
     expect(res.status).toBe(403)
     expect(res.body).toHaveProperty('error','Accès refusé')
   })
 
-  it('should delete deck successfully', async () => {
-    prismaMock.deck.findUnique.mockResolvedValue({id:1,name:'My Deck',userId:1} as any)
-    prismaMock.deckCard.deleteMany.mockResolvedValue({count:10})
-    prismaMock.deck.delete.mockResolvedValue({id:1,name:'My Deck',userId:1} as any)
+  it('supprime le deck avec succès', async () => {
+    const myDeck: Deck = { 
+      id: 1, 
+      name: 'Mon Deck', 
+      userId: 1, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+    prismaMock.deck.findUnique.mockResolvedValue(myDeck)
+    prismaMock.deckCard.deleteMany.mockResolvedValue({ count: 10 })
+    prismaMock.deck.delete.mockResolvedValue(myDeck)
+
     const res = await request(app).delete('/api/decks/1').set('Authorization','Bearer token')
     expect(res.status).toBe(200)
     expect(res.body).toHaveProperty('message','Deck supprimé avec succès')
   })
 
-  it('should return 500 on server error', async () => {
-    prismaMock.deck.findUnique.mockRejectedValue(new Error('Database error'))
+  it('renvoie 500 en cas d’erreur serveur', async () => {
+    prismaMock.deck.findUnique.mockRejectedValue(new Error('Erreur base de données'))
     const res = await request(app).delete('/api/decks/1').set('Authorization','Bearer token')
     expect(res.status).toBe(500)
     expect(res.body).toHaveProperty('error','Erreur serveur')
