@@ -7,6 +7,10 @@ vi.mock('../src/database', () => ({
     prisma: mockDeep<PrismaClient>()
 }));
 
+vi.mock('bcryptjs');
+
+vi.mock('jsonwebtoken');
+
 beforeEach(() => {
     mockReset(prismaMock);
 });
