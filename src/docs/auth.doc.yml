@@ -1,0 +1,121 @@
+paths:
+  /api/auth/sign-up:
+    post:
+      tags:
+        - Authentication
+      summary: Inscription d'un nouvel utilisateur
+      description: Crée un nouvel utilisateur et retourne un token JWT valide 7 jours
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - username
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Adresse email unique de l'utilisateur
+                  example: "alice@example.com"
+                username:
+                  type: string
+                  description: Nom d'utilisateur unique
+                  example: "alice"
+                password:
+                  type: string
+                  format: password
+                  description: Mot de passe (sera hashé avec bcrypt)
+                  example: "SecurePassword123!"
+      responses:
+        "201":
+          description: Utilisateur créé avec succès et token JWT généré
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Données manquantes ou invalides
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Données manquantes"
+        "409":
+          description: Email déjà utilisé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Email déjà utilisé"
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Erreur serveur"
+
+  /api/auth/sign-in:
+    post:
+      tags:
+        - Authentication
+      summary: Connexion utilisateur
+      description: Authentifie un utilisateur et retourne un token JWT valide 7 jours
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Adresse email de l'utilisateur
+                  example: "alice@example.com"
+                password:
+                  type: string
+                  format: password
+                  description: Mot de passe de l'utilisateur
+                  example: "SecurePassword123!"
+      responses:
+        "200":
+          description: Connexion réussie et token JWT généré
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Données manquantes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Données manquantes"
+        "401":
+          description: Email ou mot de passe incorrect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Email ou mot de passe incorrect"
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Erreur serveur"

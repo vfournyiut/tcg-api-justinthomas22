@@ -5,6 +5,8 @@ import cors from "cors";
 import {authRouter} from "./auth/auth.route";
 import { cardsRouter } from "./cards/cards.route";
 import { decksRouter } from "./decks/decks.route";
+import swaggerUi from 'swagger-ui-express'
+import {swaggerDocument} from './docs'
 
 
 
@@ -23,6 +25,16 @@ app.use(express.json());
 
 // Serve static files (Socket.io test client)
 app.use(express.static('public'));
+
+// Documentation Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: "API Documentation TCG",
+    swaggerOptions: {
+        tryItOutEnabled: true,
+        persistAuthorization: true,
+    }
+}))
 
 // Health check endpoint
 app.get("/api/health", (_req, res) => {

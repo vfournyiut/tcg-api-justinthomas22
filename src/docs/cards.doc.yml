@@ -1,0 +1,43 @@
+paths:
+  /api/cards:
+    get:
+      tags:
+        - Cards
+      summary: Récupérer toutes les cartes
+      description: Récupère la liste complète de toutes les cartes Pokémon disponibles, triées par numéro Pokédex
+      responses:
+        "200":
+          description: Liste de toutes les cartes disponibles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Card"
+              example:
+                - id: 1
+                  name: "Bulbizarre"
+                  pokedexNumber: 1
+                  hp: 45
+                  attack: 49
+                  type: "Normal"
+                  imgUrl: "https://example.com/pokemon/1.png"
+                  createdAt: "2025-01-22T10:00:00Z"
+                  updatedAt: "2025-01-22T10:00:00Z"
+                - id: 2
+                  name: "Herbizarre"
+                  pokedexNumber: 2
+                  hp: 60
+                  attack: 62
+                  type: "Normal"
+                  imgUrl: "https://example.com/pokemon/2.png"
+                  createdAt: "2025-01-22T10:00:00Z"
+                  updatedAt: "2025-01-22T10:00:00Z"
+        "500":
+          description: Erreur serveur lors de la récupération des cartes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Erreur serveur"

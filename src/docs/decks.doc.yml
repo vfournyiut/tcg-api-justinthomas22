@@ -1,0 +1,319 @@
+paths:
+  /api/decks:
+    post:
+      tags:
+        - Decks
+      summary: Créer un nouveau deck
+      description: Crée un nouveau deck Pokémon composé de exactement 10 cartes. L'utilisateur doit être authentifié.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - cards
+              properties:
+                name:
+                  type: string
+                  description: Nom du deck
+                  example: "Fire Deck"
+                cards:
+                  type: array
+                  minItems: 10
+                  maxItems: 10
+                  items:
+                    type: integer
+                  description: Tableau de 10 numéros Pokédex représentant les cartes du deck
+                  example: [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]
+      responses:
+        "201":
+          description: Deck créé avec succès
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deck"
+        "400":
+          description: Requête invalide (nom manquant ou cartes invalides)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                nom-manquant:
+                  value:
+                    error: "Nom manquant"
+                cartes-invalides:
+                  value:
+                    error: "Le deck doit contenir exactement 10 cartes"
+                cartes-inexistantes:
+                  value:
+                    error: "Cartes invalides ou inexistantes"
+        "401":
+          description: Non authentifié (token manquant ou invalide)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Token manquant"
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Erreur serveur"
+
+  /api/decks/mine:
+    get:
+      tags:
+        - Decks
+      summary: Récupérer mes decks
+      description: Récupère la liste de tous les decks appartenant à l'utilisateur authentifié
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Liste des decks de l'utilisateur
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Deck"
+              example:
+                - id: 1
+                  name: "Fire Deck"
+                  userId: 1
+                  deckCards: []
+                  createdAt: "2025-01-22T10:00:00Z"
+                  updatedAt: "2025-01-22T10:00:00Z"
+                - id: 2
+                  name: "Water Deck"
+                  userId: 1
+                  deckCards: []
+                  createdAt: "2025-01-22T10:00:00Z"
+                  updatedAt: "2025-01-22T10:00:00Z"
+        "401":
+          description: Non authentifié (token manquant ou invalide)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Token manquant"
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Erreur serveur"
+
+  /api/decks/{id}:
+    get:
+      tags:
+        - Decks
+      summary: Récupérer un deck par ID
+      description: Récupère les détails d'un deck spécifique. L'utilisateur ne peut accéder qu'à ses propres decks.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID du deck à récupérer
+          example: 1
+      responses:
+        "200":
+          description: Détails du deck
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deck"
+        "401":
+          description: Non authentifié (token manquant ou invalide)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Token manquant"
+        "403":
+          description: Accès refusé (deck appartient à un autre utilisateur)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Accès refusé"
+        "404":
+          description: Deck non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Deck inexistant"
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Erreur serveur"
+
+    patch:
+      tags:
+        - Decks
+      summary: Mettre à jour un deck
+      description: Met à jour le nom et/ou les cartes d'un deck existant. L'utilisateur ne peut modifier que ses propres decks. Si les cartes sont modifiées, elles doivent être exactement 10.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID du deck à mettre à jour
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Nouveau nom du deck (optionnel)
+                  example: "Updated Fire Deck"
+                cards:
+                  type: array
+                  minItems: 10
+                  maxItems: 10
+                  items:
+                    type: integer
+                  description: Nouveau tableau de 10 numéros Pokédex (optionnel)
+                  example: [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]
+      responses:
+        "200":
+          description: Deck mis à jour avec succès
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deck"
+        "400":
+          description: Requête invalide
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                cartes-invalides:
+                  value:
+                    error: "Le deck doit contenir exactement 10 cartes"
+                cartes-inexistantes:
+                  value:
+                    error: "Cartes invalides ou inexistantes"
+        "401":
+          description: Non authentifié (token manquant ou invalide)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Token manquant"
+        "403":
+          description: Accès refusé (deck appartient à un autre utilisateur)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Accès refusé"
+        "404":
+          description: Deck non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Deck inexistant"
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Erreur serveur"
+
+    delete:
+      tags:
+        - Decks
+      summary: Supprimer un deck
+      description: Supprime un deck et toutes ses cartes associées. L'utilisateur ne peut supprimer que ses propres decks.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID du deck à supprimer
+          example: 1
+      responses:
+        "200":
+          description: Deck supprimé avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Deck supprimé avec succès"
+        "401":
+          description: Non authentifié (token manquant ou invalide)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Token manquant"
+        "403":
+          description: Accès refusé (deck appartient à un autre utilisateur)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Accès refusé"
+        "404":
+          description: Deck non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Deck inexistant"
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Erreur serveur"
