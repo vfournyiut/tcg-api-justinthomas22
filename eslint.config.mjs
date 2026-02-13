@@ -1,30 +1,39 @@
 import eslint from '@eslint/js'
+import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    plugins: {
+      'simple-import-sort': simpleImportSort,
+    },
     rules: {
+      'simple-import-sort/imports': 'error',
+      'simple-import-sort/exports': 'error',
       // Vos règles personnalisées
-      '@typescript-eslint/no-unused-vars': 'error',
-      '@typescript-eslint/no-explicit-any': 'warn',
-      'no-console': 'warn',
-      eqeqeq: ['error', 'always'],
-      'prefer-const': ['error', { destructuring: 'all' }],
-      'no-useless-rename': 'error',
-      'no-useless-constructor': 'error',
-      'no-console': 'error',
+      eqeqeq: ['error', 'always'], // Test les égalités strictes
+      'prefer-const': ['error', { destructuring: 'all' }], // Préfère const pour les variables qui ne sont pas réassignées
+      'no-console': 'off',
       'no-debugger': 'error',
-      'no-throw-literal': 'error',
       'no-unused-expressions': 'error',
       'no-var': 'error',
       'no-redeclare': 'error',
+      '@typescript-eslint/no-empty-object-type': 'off',
       'no-const-assign': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      '@typescript-eslint/no-explicit-any': ['error', { fixToUnknown: true }],
     },
-    files: ['src/**/*.ts'],
   },
   {
-    ignores: ['node_modules', 'dist', 'build', 'tests'],
+    ignores: ['node_modules', 'dist', 'build', 'tests', 'public'],
   },
 )
