@@ -61,6 +61,7 @@
     "eslint": "9.39.2",
     "husky": "^9.1.7",
     "prettier": "^3.8.1",
+    "supertest": "^7.1.4",
     "tsx": "4.7.0",
     "typescript": "5.4.5",
     "typescript-eslint": "8.54.0",
