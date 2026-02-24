@@ -1,8 +1,14 @@
 import cors from 'cors'
 import express from 'express'
 import { createServer } from 'http'
+import swaggerUi from 'swagger-ui-express'
 
+import { authRouter } from './auth/auth.route'
+import { cardsRouter } from './cards/cards.route'
+import { decksRouter } from './decks/decks.route'
+import { swaggerDocument } from './docs'
 import { env } from './env'
+import { createSocketServer } from './socket/socket.server'
 
 // Create Express app
 export const app = express()
@@ -45,6 +51,9 @@ app.use("/api/decks", decksRouter);
 if (require.main === module) {
   // Create HTTP server
   const httpServer = createServer(app)
+
+  // Attach Socket.IO (authenticated via JWT)
+  createSocketServer(httpServer)
 
   // Start server
   try {
