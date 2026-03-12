@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: '20'
 
       - name: Clean npm cache
         run: npm cache clean --force
@@ -38,6 +38,12 @@ jobs:
 
       - name: Build project
         run: npm run build
+
+      - name: Lint project
+        run: npm run lint
+
+      - name: Format
+        run: npm run format
 
       - name: Run test
         run: npm run test
